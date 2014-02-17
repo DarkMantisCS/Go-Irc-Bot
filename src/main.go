@@ -1,17 +1,14 @@
 package main
 
 import (
-    "fmt"
     "log"
+    "fmt"
     "crypto/tls"
     "bufio"
     s "strings"
+    // "os"
+    "flag"
 )
-
-type IrcData struct {
-    commandChar string
-    currentNick string
-}
 
 func authCheck(auth string) bool {
     authStr := s.Split(auth, " ")
@@ -44,7 +41,6 @@ func getData(str string, option string) string {
     return ""
 }
 
-
 func executeCommands(status string, sockfd *tls.Conn) {
     sender  := getData(status, "user")
     channel := getData(status, "channel")
@@ -55,10 +51,10 @@ func executeCommands(status string, sockfd *tls.Conn) {
 
         if authCheck(status) && len(newNick) >= 5 {
             if newNick[4] != ""{
-                fmt.Fprintf(sockfd, "NICK " + newNick[4])
+                fmt.Fprintf(sockfd, "NICK %s\r\n", newNick[4])
             }
         } else {
-            fmt.Fprintf(sockfd, "PRIVMSG " + channel + " :Sorry " + sender + " you do not have enough Kudos to do this\r\n")
+            fmt.Fprintf(sockfd, "PRIVMSG %s :Sorry %s you do not have enough Kudos to do this\r\n", channel, sender)
         }
     }
 
@@ -70,14 +66,15 @@ func executeCommands(status string, sockfd *tls.Conn) {
 
 
 func main() {
+    nick := flag.String("nick", "Goo", "The Nickname for the bot")
+    server := flag.String("server", "irc.darkscience.net", "Server for the bot to connect to")
+    port := flag.Int("port", 6697, "The port of the server")
+
+    flag.Parse()
+
     var config tls.Config
-    var IrcData IrcData
 
-
-    IrcData.currentNick = "Goo"
-    IrcData.commandChar = ">"
-
-    sockfd, err := tls.Dial("tcp", "irc.darkscience.net:6697", &config)
+    sockfd, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", *server, *port), &config)
 
     if err != nil {
         log.Fatal(err)
@@ -98,7 +95,7 @@ func main() {
         switch(i) {
             case 0:
                 fmt.Fprintf(sockfd, "USER guest 0 * :DarkMantisBOT\r\n")
-                fmt.Fprintf(sockfd, "NICK Goo\r\n")
+                fmt.Fprintf(sockfd, "NICK %s\r\n", *nick)
                 break;
 
             case 5:
