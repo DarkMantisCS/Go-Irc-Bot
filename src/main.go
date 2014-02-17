@@ -6,8 +6,9 @@ import (
     "crypto/tls"
     "bufio"
     s "strings"
-    // "os"
     "flag"
+    // "regexp"
+    // "net"
 )
 
 func authCheck(auth string) bool {
@@ -36,6 +37,8 @@ func getData(str string, option string) string {
             case "channel":
                 return s.Trim(s.Split(split[2], "!")[0], ":")
 
+            case "message":
+                return s.Trim(split[3], ":")
         }
     }
     return ""
@@ -44,6 +47,32 @@ func getData(str string, option string) string {
 func executeCommands(status string, sockfd *tls.Conn) {
     sender  := getData(status, "user")
     channel := getData(status, "channel")
+    message := getData(status, "message")
+    // regexp, _ := regexp.Compile("((.*)://)?(.*).(.*)/(.*)?")
+
+    // UrlMatch := regexp.FindString(status)
+
+    // fmt.Println(UrlMatch)
+
+    // if len(UrlMatch) > 0 {
+
+    //     conn, err := net.Dial("tcp", fmt.Sprintf("%s:80", UrlMatch))
+    //     if err == nil {
+    //         // Get title
+    //         fmt.Println("WE GOT US A URL!")
+    //         fmt.Println(conn)
+    //     }
+    // }
+
+    if authCheck(status) && s.Contains(status, ">bugDisortern") {
+        fmt.Fprintf(sockfd, "PRIVMSG #golang :Sending Disortern : I want you on my face\r\n")
+        fmt.Fprintf(sockfd, "PRIVMSG Disortern :I want you on my face\r\n")
+
+    }
+
+    if s.Contains(status, ":Disortern!") {
+        fmt.Fprintf(sockfd, "PRIVMSG #golang : Disortern Replied with: %s\r\n", message)
+    }
 
     if s.Contains(status, ">changeNick") {
 
@@ -66,9 +95,9 @@ func executeCommands(status string, sockfd *tls.Conn) {
 
 
 func main() {
-    nick := flag.String("nick", "Goo", "The Nickname for the bot")
-    server := flag.String("server", "irc.darkscience.net", "Server for the bot to connect to")
-    port := flag.Int("port", 6697, "The port of the server")
+    nick    := flag.String("nick", "Goo", "The Nickname for the bot")
+    server  := flag.String("server", "irc.darkscience.net", "Server for the bot to connect to")
+    port    := flag.Int("port", 6697, "The port of the server")
 
     flag.Parse()
 
