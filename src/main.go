@@ -1,140 +1,192 @@
 package main
 
 import (
-    "log"
-    "fmt"
-    "crypto/tls"
-    "bufio"
-    s "strings"
-    "flag"
-    // "regexp"
-    // "net"
+	"bufio"
+	"crypto/tls"
+	"flag"
+	"fmt"
+	"github.com/Southern/logger"
+	"os/exec"
+	"regexp"
+	"strconv"
+	s "strings"
 )
 
-func authCheck(auth string) bool {
-    authStr := s.Split(auth, " ")
-    if len(authStr) > 1 && authStr[0] == ":Mantis!uid3257@Cybershade.org" {
-        return true
-    }
+var (
+	Log            = logger.New().Log
+	MatchUser      = regexp.MustCompile(`^:([A-Za-z0-9\-_]+)!`)
+	Config         tls.Config
+	CommandChar    = '>'
+	BotOwner       = "Mantis!Mantis@Cybershade.org"
+	SQLMapLocation = "/home/rclifford/Downloads/sqlmap/"
+)
 
-    return false
+func sendMessage(message string, location string, sockfd *tls.Conn) {
+	fmt.Fprintf(sockfd, "PRIVMSG %s :%s\r\n", location, message)
 }
 
-func sendPong(ping string, sockfd *tls.Conn) {
-    pong := s.Replace(ping, "I", "O", 1)
-    fmt.Println(pong)
-    fmt.Fprintf(sockfd, pong)
+func sendRaw(message string, sockfd *tls.Conn) {
+	fmt.Fprintf(sockfd, "%s\r\n", message)
 }
 
 func getData(str string, option string) string {
-    split := s.Split(str, " ")
+	split := s.SplitN(str, " ", 4)
 
-    if len(split) >= 4{
-        switch(option){
-            case "user":
-                return s.Trim(s.Split(split[0], "!")[0], ":")
+	if len(split) >= 4 {
+		switch option {
+		case "user":
+			return s.Trim(s.Split(split[0], "!")[0], ":")
 
-            case "channel":
-                return s.Trim(s.Split(split[2], "!")[0], ":")
+		case "userIdent":
+			return s.TrimLeft(split[0], ":")
+		case "channel":
+			return s.Trim(s.Split(split[2], "!")[0], ":")
 
-            case "message":
-                return s.Trim(split[3], ":")
-        }
-    }
-    return ""
+		case "message":
+			ret := s.TrimLeft(split[3], ":")
+			return ret
+		}
+	}
+	return ""
+}
+
+func authCheck(status string, sockfd *tls.Conn) bool {
+	user := getData(status, "userIdent")
+
+	if user == BotOwner {
+
+		Log("BotOwner Confirmed.")
+
+		return true
+	}
+
+	Log("w", "Not valid bot owner.")
+
+	sendMessage("Sorry, you do not have the correct privileges", getData(status, "channel"), sockfd)
+
+	return false
 }
 
 func executeCommands(status string, sockfd *tls.Conn) {
-    sender  := getData(status, "user")
-    channel := getData(status, "channel")
-    message := getData(status, "message")
-    // regexp, _ := regexp.Compile("((.*)://)?(.*).(.*)/(.*)?")
+	sender := getData(status, "user")
+	channel := getData(status, "channel")
+	message := getData(status, "message")
 
-    // UrlMatch := regexp.FindString(status)
+	if s.HasPrefix(message, string(CommandChar)) {
 
-    // fmt.Println(UrlMatch)
+		if authCheck(status, sockfd) {
 
-    // if len(UrlMatch) > 0 {
+			args := s.Split(message, " ")
 
-    //     conn, err := net.Dial("tcp", fmt.Sprintf("%s:80", UrlMatch))
-    //     if err == nil {
-    //         // Get title
-    //         fmt.Println("WE GOT US A URL!")
-    //         fmt.Println(conn)
-    //     }
-    // }
+			if s.HasPrefix(message, fmt.Sprintf("%cchangeNick", CommandChar)) {
+				if len(args) >= 2 {
+					sendRaw(fmt.Sprintf("NICK %s", args[1]), sockfd)
+				}
+			}
 
-    if authCheck(status) && s.Contains(status, ">bugDisortern") {
-        fmt.Fprintf(sockfd, "PRIVMSG #golang :Sending Disortern : I want you on my face\r\n")
-        fmt.Fprintf(sockfd, "PRIVMSG Disortern :I want you on my face\r\n")
+			// if s.HasPrefix(message, fmt.Sprintf("%cping", CommandChar)) {
+			// 	if len(args) >= 2 {
 
-    }
+			// 		cmd, err := exec.Command("ping", args[1], "-c3").Output()
 
-    if s.Contains(status, ":Disortern!") {
-        fmt.Fprintf(sockfd, "PRIVMSG #golang : Disortern Replied with: %s\r\n", message)
-    }
+			// 		fmt.Println(cmd)
 
-    if s.Contains(status, ">changeNick") {
+			// 		if err != nil {
 
-        newNick := s.Split(status, " ")
+			// 			Log("w", fmt.Sprintf("%s", err))
 
-        if authCheck(status) && len(newNick) >= 5 {
-            if newNick[4] != ""{
-                fmt.Fprintf(sockfd, "NICK %s\r\n", newNick[4])
-            }
-        } else {
-            fmt.Fprintf(sockfd, "PRIVMSG %s :Sorry %s you do not have enough Kudos to do this\r\n", channel, sender)
-        }
-    }
+			// 			sendMessage(fmt.Sprintf("Sorry %s, something went wrong", sender), channel, sockfd)
 
-    // Send pong
-    if s.Contains(status, "PING"){
-        sendPong(status, sockfd);
-    }
+			// 		} else {
+
+			// 			fmt.Println(cmd)
+
+			// 			sendMessage(fmt.Sprintf("The server is up and responding to pings, %s", sender), channel, sockfd)
+
+			// 		}
+			// 	}
+			// }
+
+			/**
+			//
+			// -- Need to make this method concurrent
+			//
+			*/
+			if s.HasPrefix(message, fmt.Sprintf("%csqlMap", CommandChar)) {
+				if len(args) >= 2 {
+
+					out, err := exec.Command("/usr/bin/python", fmt.Sprintf("%ssqlmap.py", SQLMapLocation), fmt.Sprintf("-u \"%s\"", args[1]), "--random-agent", "--threads=2").Output()
+
+					fmt.Println(string(out))
+
+					if err != nil {
+
+						sendMessage(fmt.Sprintf("Sorry %v, this could not be executed.", sender), channel, sockfd)
+
+					} else {
+
+						sendMessage(fmt.Sprintf("%s", strconv.Quote(string(out))), sender, sockfd)
+
+					}
+				}
+			}
+		}
+	}
 }
 
-
 func main() {
-    nick    := flag.String("nick", "Goo", "The Nickname for the bot")
-    server  := flag.String("server", "irc.darkscience.net", "Server for the bot to connect to")
-    port    := flag.Int("port", 6697, "The port of the server")
 
-    flag.Parse()
+	nick := flag.String("nick", "Goo", "The Nickname for the bot")
 
-    var config tls.Config
+	server := flag.String("server", "irc.darkscience.net", "Server for the bot to connect to")
 
-    sockfd, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", *server, *port), &config)
+	port := flag.Int("port", 6697, "The port of the server")
 
-    if err != nil {
-        log.Fatal(err)
-    }
+	flag.Parse()
 
-    i := 0
+	sockfd, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", *server, *port), &Config)
 
-    for {
+	if err != nil {
+		Log("w", fmt.Sprintf("%s", err))
+	}
 
-        status, err := bufio.NewReader(sockfd).ReadString('\n')
+	i := 0
 
-        if err != nil {
-            log.Fatal(err)
-        }
+	for {
 
-        fmt.Println(status)
+		status, err := bufio.NewReader(sockfd).ReadString('\n')
 
-        switch(i) {
-            case 0:
-                fmt.Fprintf(sockfd, "USER guest 0 * :DarkMantisBOT\r\n")
-                fmt.Fprintf(sockfd, "NICK %s\r\n", *nick)
-                break;
+		if err != nil {
+			Log("w", fmt.Sprintf("%s", err))
+		}
 
-            case 5:
-                fmt.Fprintf(sockfd, "JOIN #bots\r\n")
-                fmt.Fprintf(sockfd, "JOIN #golang\r\n")
-                break;
-        }
+		Log(status)
 
-        executeCommands(status, sockfd)
+		switch i {
 
-        i++
-    }
+		case 0:
+			fmt.Fprintf(sockfd, "USER guest 0 * :DarkMantisBOT\r\n")
+			fmt.Fprintf(sockfd, "NICK %s\r\n", *nick)
+			break
+
+		case 5:
+			fmt.Fprintf(sockfd, "JOIN #bots\r\n")
+			// fmt.Fprintf(sockfd, "JOIN #golang\r\n")
+			// fmt.Fprintf(sockfd, "JOIN #treehouse\r\n")
+			break
+		}
+
+		// Send pong
+		if s.Contains(status, "PING") {
+			pong := s.Replace(status, "I", "O", 1)
+
+			Log(pong)
+
+			fmt.Fprintf(sockfd, pong)
+		}
+
+		executeCommands(status, sockfd)
+
+		i++
+	}
 }
