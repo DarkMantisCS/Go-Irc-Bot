@@ -15,6 +15,7 @@ import (
 var (
 	Log            = logger.New().Log
 	MatchUser      = regexp.MustCompile(`^:([A-Za-z0-9\-_]+)!`)
+	URLMatch       = regexp.MustCompile(`\b(https?://)?(([0-9a-zA-Z_!~*'().&=+$%-]+:)?[0-9a-zA-Z_!~*'().&=+$%-]+\@)?(([0-9]{1,3}\.){3}[0-9]{1,3}|([0-9a-zA-Z_!~*'()-]+\.)*([0-9a-zA-Z][0-9a-zA-Z-]{0,61})?[0-9a-zA-Z]\.[a-zA-Z]{2,6})(:[0-9]{1,4})?((/[0-9a-zA-Z_!~*'().;?:\@&=+$,%#-]+)*/?)`)
 	Config         tls.Config
 	CommandChar    = '>'
 	BotOwner       = "Mantis!Mantis@Cybershade.org"
@@ -84,6 +85,18 @@ func executeCommands(status string, sockfd *tls.Conn) {
 				}
 			}
 
+			if s.HasPrefix(message, fmt.Sprintf("%cjoin", CommandChar)) {
+				sendRaw(fmt.Sprintf("JOIN %s", args[1]), sockfd)
+			}
+
+			if s.HasPrefix(message, fmt.Sprintf("%cpart", CommandChar)) {
+				sendRaw(fmt.Sprintf("PART %s", args[1]), sockfd)
+			}
+
+
+// Invite
+//			info: :Mantis!Mantis@Cybershade.org INVITE Goo :#treehouse
+
 			// if s.HasPrefix(message, fmt.Sprintf("%cping", CommandChar)) {
 			// 	if len(args) >= 2 {
 
@@ -113,9 +126,10 @@ func executeCommands(status string, sockfd *tls.Conn) {
 			//
 			*/
 			if s.HasPrefix(message, fmt.Sprintf("%csqlMap", CommandChar)) {
+
 				if len(args) >= 2 {
 
-					out, err := exec.Command("/usr/bin/python", fmt.Sprintf("%ssqlmap.py", SQLMapLocation), fmt.Sprintf("-u \"%s\"", args[1]), "--random-agent", "--threads=2").Output()
+					out, err := exec.Command("/usr/bin/python", fmt.Sprintf("%ssqlmap.py", SQLMapLocation), fmt.Sprintf("-u \"%s\"", args[1]), "--random-agent", "--threads=2", "--batch").Output()
 
 					fmt.Println(string(out))
 
@@ -125,11 +139,13 @@ func executeCommands(status string, sockfd *tls.Conn) {
 
 					} else {
 
-						sendMessage(fmt.Sprintf("%s", strconv.Quote(string(out))), sender, sockfd)
+						sendMessage(strconv.QuoteToASCII(string(out)), sender, sockfd)
 
 					}
 				}
 			}
+
+			
 		}
 	}
 }
