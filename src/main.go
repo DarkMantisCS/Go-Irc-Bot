@@ -86,11 +86,15 @@ func executeCommands(status string, sockfd *tls.Conn) {
 			}
 
 			if s.HasPrefix(message, fmt.Sprintf("%cjoin", CommandChar)) {
-				sendRaw(fmt.Sprintf("JOIN %s", args[1]), sockfd)
+				if len(args) >= 2 {
+					sendRaw(fmt.Sprintf("JOIN %s", args[1]), sockfd)
+				}
 			}
 
 			if s.HasPrefix(message, fmt.Sprintf("%cpart", CommandChar)) {
-				sendRaw(fmt.Sprintf("PART %s", args[1]), sockfd)
+				if len(args) >= 2 {
+					sendRaw(fmt.Sprintf("PART %s", args[1]), sockfd)
+				}
 			}
 
 
@@ -144,8 +148,6 @@ func executeCommands(status string, sockfd *tls.Conn) {
 					}
 				}
 			}
-
-			
 		}
 	}
 }
